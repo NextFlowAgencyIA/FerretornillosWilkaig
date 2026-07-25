@@ -179,7 +179,7 @@ textarea{resize:vertical;min-height:70px}
       </div>
     </div>
     <div class="nav-links">
-      <a href="#prods-section" class="nav-link" onclick="setCat('Todos')">Catálogo</a>
+      <button class="nav-link" id="nav-cat-btn" onclick="navCatalogo()">Catálogo</button>
       <button class="nav-cart-btn" onclick="openCart()" title="Carrito">🛒<span class="cart-count" id="cart-count">0</span></button>
       <button class="nav-admin-btn" id="nav-admin-btn" onclick="gotoAdmin()" title="Panel admin" style="display:none">⚙</button>
     </div>
@@ -3220,6 +3220,35 @@ async function loadHistorial(){
     if(!escribio && s.value){ s.value=''; try{ pubMode='home'; renderPublic(); }catch(e){} }
   }
   [200,700,1500,3000].forEach(function(ms){ setTimeout(vigilar,ms); });
+})();
+</script>
+<script>
+/* Boton del menu: entra al catalogo o regresa al inicio segun donde estes */
+function navCatalogo(){
+  if(typeof pubMode!=='undefined' && pubMode==='home'){
+    setCat('Todos');
+    const c=document.getElementById('catalog-area');
+    if(c) c.scrollIntoView({behavior:'smooth',block:'start'});
+  }else{
+    gotoHome();
+    window.scrollTo({top:0,behavior:'smooth'});
+  }
+}
+function actualizarBotonNav(){
+  const b=document.getElementById('nav-cat-btn');
+  if(!b) return;
+  const enInicio=(typeof pubMode==='undefined' || pubMode==='home');
+  b.textContent = enInicio ? 'Cat\u00e1logo' : '\u2190 Inicio';
+  b.title = enInicio ? 'Ver todo el cat\u00e1logo' : 'Volver a las categor\u00edas';
+}
+(function(){
+  const original=renderPublic;
+  renderPublic=function(){
+    const r=original.apply(this,arguments);
+    try{ actualizarBotonNav(); }catch(e){}
+    return r;
+  };
+  setTimeout(actualizarBotonNav,500);
 })();
 </script>
 </body>
