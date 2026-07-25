@@ -215,7 +215,7 @@ textarea{resize:vertical;min-height:70px}
   </section>
 
   <div class="search-wrap">
-    <input type="text" id="pub-search" placeholder="🔍 Buscar producto, código..." oninput="renderPublic()">
+    <input type="search" id="pub-search" name="buscar-producto-wilkaig" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-form-type="other" placeholder="🔍 Buscar producto, código..." oninput="renderPublic()">
   </div>
 
   <div class="cats-scroll" id="cats-scroll"></div>
@@ -2432,7 +2432,12 @@ function renderFilterPanel(base){
     html+='</div></div>';
   });
   if(!groups){
-    html+='<div class="flt-empty">Aún no hay datos para filtrar en esta categoría.<br><br>Los filtros se arman solos cuando los productos tienen <strong>Tipo, Medida, Material o Acabado</strong>. Llénalos desde el panel admin al editar cada producto.</div>';
+    if(typeof isAuth==='function' && isAuth()){
+      /* mensaje solo para el administrador */
+      html+='<div class="flt-empty">Aún no hay datos para filtrar en esta categoría.<br><br>Los filtros se arman solos cuando los productos tienen <strong>Tipo, Medida, Material o Acabado</strong>. Llénalos desde el panel admin al editar cada producto.</div>';
+    }else{
+      html+='<div class="flt-empty">Sin filtros disponibles en esta categoría.</div>';
+    }
   }
   const hayStock=state.products.some(function(p){ return p.stock!==null && p.stock!==undefined; });
   if(hayStock){
@@ -3192,6 +3197,16 @@ async function loadHistorial(){
   });
 
   setTimeout(arrancar,350);
+})();
+</script>
+<script>
+/* Evita que el navegador autocomplete el buscador (lo rellenaba con correos) */
+(function(){
+  function limpiar(){
+    const s=document.getElementById('pub-search');
+    if(s && s.value){ s.value=''; try{ pubMode='home'; renderPublic(); }catch(e){} }
+  }
+  window.addEventListener('load',function(){ setTimeout(limpiar,300); setTimeout(limpiar,1200); });
 })();
 </script>
 </body>
