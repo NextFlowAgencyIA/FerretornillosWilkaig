@@ -206,6 +206,10 @@ textarea{resize:vertical;min-height:70px}
     <span class="hero-badge">⚙ Ferretornillos y Suministros · Cúa, Venezuela</span>
   </div>
 
+  <div class="search-wrap">
+    <input type="search" id="pub-search" name="buscar-producto-wilkaig" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-form-type="other" readonly onfocus="this.removeAttribute('readonly')" placeholder="🔍 Buscar producto, código..." oninput="renderPublic()">
+  </div>
+
   <section id="home-cats" style="display:none">
     <div class="hc-head">
       <h2>Categorías de Productos</h2>
@@ -213,10 +217,6 @@ textarea{resize:vertical;min-height:70px}
     </div>
     <div class="hc-grid" id="hc-grid"></div>
   </section>
-
-  <div class="search-wrap">
-    <input type="search" id="pub-search" name="buscar-producto-wilkaig" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-form-type="other" placeholder="🔍 Buscar producto, código..." oninput="renderPublic()">
-  </div>
 
   <div class="cats-scroll" id="cats-scroll"></div>
 
@@ -3207,6 +3207,19 @@ async function loadHistorial(){
     if(s && s.value){ s.value=''; try{ pubMode='home'; renderPublic(); }catch(e){} }
   }
   window.addEventListener('load',function(){ setTimeout(limpiar,300); setTimeout(limpiar,1200); });
+})();
+</script>
+<script>
+/* Blindaje final contra el autocompletado del navegador en el buscador */
+(function(){
+  const s=document.getElementById('pub-search');
+  if(!s) return;
+  let escribio=false;
+  s.addEventListener('keydown',function(){ escribio=true; });
+  function vigilar(){
+    if(!escribio && s.value){ s.value=''; try{ pubMode='home'; renderPublic(); }catch(e){} }
+  }
+  [200,700,1500,3000].forEach(function(ms){ setTimeout(vigilar,ms); });
 })();
 </script>
 </body>
