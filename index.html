@@ -3390,5 +3390,115 @@ function agregarDesdeCard(id){
   };
 })();
 </script>
+<style>
+/* ===== Ventas: anuladas y resumen ===== */
+.ven-item{padding:12px 0;border-bottom:1px solid var(--color-border-tertiary)}
+.ven-item.anulada{opacity:.72}
+.ven-item.anulada .ven-cuerpo{text-decoration:line-through;text-decoration-color:rgba(198,40,40,.5)}
+.ven-cab{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px}
+.ven-fecha{font-size:13px;color:#F7931E;font-weight:700}
+.ven-tag{font-size:11px;font-weight:800;padding:2px 9px;border-radius:10px;letter-spacing:.5px}
+.ven-tag.anul{background:#fdecec;color:#c62828;border:1px solid #f3c2c2}
+.ven-btn-anular{margin-left:auto;background:transparent;border:1.5px solid #e0a4a4;color:#c62828;border-radius:8px;padding:4px 12px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:'Barlow',sans-serif}
+.ven-btn-anular:hover{background:#c62828;color:#fff;border-color:#c62828}
+.ven-motivo{font-size:12.5px;color:#c62828;margin-top:5px;background:#fdecec;border-radius:8px;padding:6px 10px;line-height:1.5}
+.ven-resumen{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px}
+.ven-card{background:var(--color-background-secondary);border:1px solid var(--color-border-tertiary);border-radius:10px;padding:10px 12px}
+.ven-card .vl{font-size:12px;color:var(--color-text-secondary);font-weight:600}
+.ven-card .vv{font-family:'Oswald',sans-serif;font-size:19px;font-weight:700;color:#F7931E;margin-top:2px}
+.ven-card.ok .vv{color:#1fa855}
+.ven-card.bad .vv{color:#c62828}
+</style>
+<script>
+/* ===== Ventas: anular en vez de borrar (queda el registro) ===== */
+async function loadVentas(){
+  const box=document.getElementById('ventas-list'); if(!box) return;
+  if(!sb){ box.innerHTML='<div style="text-align:center;padding:20px;color:var(--color-text-tertiary);font-size:14px">Supabase no está configurado.</div>'; return; }
+  box.innerHTML='<div style="text-align:center;padding:20px;color:var(--color-text-tertiary);font-size:14px">Cargando ventas...</div>';
+  const res=await sb.from('ventas').select('*').order('creado_en',{ascending:false}).limit(300);
+  if(res.error){ box.innerHTML='<div style="text-align:center;padding:20px;color:#e24b4a;font-size:14px">No se pudieron cargar las ventas: '+(res.error.message||'')+'</div>'; return; }
+  const vs=res.data||[];
+  const cnt=document.getElementById('ven-count'); if(cnt) cnt.textContent=vs.length;
+  if(!vs.length){ box.innerHTML='<div style="text-align:center;padding:20px;color:var(--color-text-tertiary);font-size:14px">Aún no hay ventas registradas.</div>'; return; }
+
+  const r=bcvRate||0;
+  let nAct=0,nAnu=0,totAct=0,totAnu=0;
+  vs.forEach(function(v){
+    const anul=(v.estado==='anulada');
+    if(anul){ nAnu++; totAnu+=Number(v.total_usd||0); }
+    else { nAct++; totAct+=Number(v.total_usd||0); }
+  });
+
+  const resumen='<div class="ven-resumen">'
+    +'<div class="ven-card ok"><div class="vl">Ventas válidas</div><div class="vv">'+nAct+'</div></div>'
+    +'<div class="ven-card ok"><div class="vl">Total vendido</div><div class="vv">'+(r?fmtMoney(totAct*r,'BS'):fmtMoney(totAct,'USD'))+'</div></div>'
+    +'<div class="ven-card bad"><div class="vl">Anuladas</div><div class="vv">'+nAnu+'</div></div>'
+    +'<div class="ven-card bad"><div class="vl">Monto anulado</div><div class="vv">'+(r?fmtMoney(totAnu*r,'BS'):fmtMoney(totAnu,'USD'))+'</div></div>'
+    +'</div>';
+
+  box.innerHTML = resumen + vs.map(function(v){
+    const anul=(v.estado==='anulada');
+    const f=new Date(v.creado_en);
+    const fecha=f.toLocaleDateString('es-VE',{day:'2-digit',month:'2-digit',year:'numeric'})+' '+f.toLocaleTimeString('es-VE',{hour:'2-digit',minute:'2-digit'});
+    const its=(v.items||[]).map(function(it){return '• '+it.cantidad+' x '+escapeHtml(it.nombre)+(it.precio_usd!=null?' ($'+Number(it.precio_usd).toFixed(2)+')':'');}).join('<br>');
+    const tot=Number(v.total_usd||0);
+    let motivo='';
+    if(anul){
+      const fa=v.anulada_en?new Date(v.anulada_en):null;
+      const fechaA=fa?(fa.toLocaleDateString('es-VE',{day:'2-digit',month:'2-digit',year:'numeric'})+' '+fa.toLocaleTimeString('es-VE',{hour:'2-digit',minute:'2-digit'})):'';
+      motivo='<div class="ven-motivo"><strong>Anulada</strong>'+(fechaA?(' el '+fechaA):'')+(v.motivo_anulacion?(' · Motivo: '+escapeHtml(v.motivo_anulacion)):'')+'</div>';
+    }
+    return '<div class="ven-item'+(anul?' anulada':'')+'">'
+      +'<div class="ven-cab">'
+        +'<span class="ven-fecha">🧾 '+fecha+' · Venta #'+v.id+' · '+escapeHtml(v.metodo_pago||'')+'</span>'
+        +(anul?'<span class="ven-tag anul">ANULADA</span>':'<button class="ven-btn-anular" onclick="anularVenta('+v.id+')">Anular</button>')
+      +'</div>'
+      +'<div class="ven-cuerpo">'
+        +'<div style="font-size:13.5px;color:var(--color-text-secondary);margin-bottom:4px">Cliente: '+escapeHtml(v.cliente||'Venta en mostrador')+'</div>'
+        +'<div style="font-size:14px;color:var(--color-text-primary);line-height:1.6">'+its+'</div>'
+        +'<div style="font-size:14px;font-weight:700;color:'+(anul?'#c62828':'#2e9e6b')+';margin-top:4px">Total: '+(r?fmtMoney(tot*r,'BS'):fmtMoney(tot,'USD'))+'</div>'
+      +'</div>'
+      +motivo
+      +'</div>';
+  }).join('');
+}
+
+async function anularVenta(id){
+  if(!sb) return;
+  const motivo=prompt('¿Por qué se anula esta venta?\n(Ej: prueba, error al registrar, el cliente devolvió el producto)');
+  if(motivo===null) return;
+  if(!motivo.trim()){ alert('Escribe el motivo para dejar constancia.'); return; }
+  if(!confirm('La venta quedará marcada como ANULADA y se devolverá el stock.\nEl registro NO se borra: seguirá visible en el historial.\n\n¿Continuar?')) return;
+
+  const rv=await sb.from('ventas').select('*').eq('id',id).single();
+  if(rv.error){ alert('No se pudo leer la venta: '+(rv.error.message||'')); return; }
+  if(rv.data.estado==='anulada'){ alert('Esa venta ya estaba anulada.'); loadVentas(); return; }
+
+  const up=await sb.from('ventas').update({
+    estado:'anulada',
+    anulada_en:new Date().toISOString(),
+    motivo_anulacion:motivo.trim()
+  }).eq('id',id);
+  if(up.error){
+    alert('No se pudo anular: '+(up.error.message||'')+'\n\nSi menciona las columnas estado, anulada_en o motivo_anulacion, falta ejecutar el SQL en Supabase.');
+    return;
+  }
+
+  /* devolver el stock de los productos que lo manejan */
+  const items=rv.data.items||[];
+  for(const x of items){
+    const p=state.products.find(function(pp){ return String(pp.id)===String(x.id); });
+    if(p && p.stock!==null && p.stock!==undefined){
+      const nuevo=Number(p.stock)+Number(x.cantidad||0);
+      const us=await sb.from('productos').update({stock:nuevo}).eq('id',p.id);
+      if(!us.error) p.stock=nuevo;
+    }
+  }
+  renderAdminList();
+  try{ renderPublic(); }catch(e){}
+  loadVentas();
+  alert('Venta anulada ✓  El stock fue devuelto y el registro quedó en el historial.');
+}
+</script>
 </body>
 </html>
