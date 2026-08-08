@@ -310,6 +310,32 @@ textarea{resize:vertical;min-height:70px}
     </div>
 
     <div id="tab-products" class="admin-panel active">
+      <div class="card" id="card-importar">
+        <h3 style="font-size:17px;font-weight:700;margin-bottom:6px;color:var(--color-text-primary)">📥 Cargar productos por lote (Excel/CSV)</h3>
+        <p style="font-size:13px;color:var(--color-text-secondary);margin-bottom:12px">En Excel guarda tu archivo como <strong>CSV</strong> (Archivo → Guardar como → CSV). Luego súbelo aquí, indica qué columna es cada cosa y revisa la vista previa antes de importar.</p>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+          <label class="btn-upload">📁 Elegir archivo CSV
+            <input type="file" id="imp-file" accept=".csv,text/csv" onchange="impLeerArchivo(event)" style="display:none">
+          </label>
+          <span id="imp-nombre" style="font-size:13px;color:var(--color-text-secondary)"></span>
+        </div>
+        <div id="imp-mapeo" style="display:none">
+          <div class="imp-grid" id="imp-campos"></div>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0">
+            <label style="display:flex;align-items:center;gap:8px;font-size:14px;color:var(--color-text-primary);margin:0;cursor:pointer">
+              <input type="checkbox" id="imp-actualiza" checked style="width:16px;height:16px;accent-color:#F7931E">
+              Si el código ya existe, actualizar ese producto en vez de duplicarlo
+            </label>
+          </div>
+          <div id="imp-previa"></div>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px">
+            <button class="btn-orange" onclick="impImportar()"><i class="ti ti-upload" aria-hidden="true"></i> Importar productos</button>
+            <button class="btn-ghost" onclick="impCancelar()">Cancelar</button>
+            <span id="imp-estado" style="font-size:14px;font-weight:600;color:var(--color-text-secondary)"></span>
+          </div>
+        </div>
+      </div>
+
       <div class="card">
         <h3 style="font-size:17px;font-weight:700;margin-bottom:1rem;color:var(--color-text-primary)" id="form-title">Agregar producto</h3>
         <div class="form-row">
@@ -440,6 +466,14 @@ textarea{resize:vertical;min-height:70px}
             </select>
           </div>
         </div>
+        <div class="form-row">
+          <div><label>📂 Filtrar por categoría</label><select id="aj-cat" onchange="renderAjusteList()"><option value="">Todas las categorías</option></select></div>
+          <div><label>🔠 Filtrar por familia / inicio del código</label><input type="text" id="aj-fam" list="dl-familias" placeholder="Ej: 0305 · muestra los códigos que empiecen así" oninput="renderAjusteList()"><datalist id="dl-familias"></datalist></div>
+        </div>
+        <div class="form-row full">
+          <div><label>🔍 Filtrar por texto (nombre o código)</label><input type="text" id="aj-txt" placeholder="Ej: tornillo G5NC" oninput="renderAjusteList()"></div>
+        </div>
+        <div id="aj-info" class="aj-info"></div>
         <div id="aj-selall-row" style="display:none;align-items:center;gap:10px;margin-bottom:8px">
           <button class="btn-ghost" onclick="ajSelectAll(true)">Marcar todos</button>
           <button class="btn-ghost" onclick="ajSelectAll(false)">Desmarcar todos</button>
@@ -3498,6 +3532,320 @@ async function anularVenta(id){
   try{ renderPublic(); }catch(e){}
   loadVentas();
   alert('Venta anulada ✓  El stock fue devuelto y el registro quedó en el historial.');
+}
+</script>
+<style>
+/* ===== Importacion por lote y filtros de precios ===== */
+.imp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.imp-tabla{width:100%;border-collapse:collapse;font-size:13px;min-width:600px}
+.imp-tabla th{text-align:left;font-size:11.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--color-text-secondary);padding:7px 6px;border-bottom:2px solid var(--color-border-tertiary)}
+.imp-tabla td{padding:7px 6px;border-bottom:1px solid var(--color-border-tertiary);color:var(--color-text-primary)}
+.imp-wrap{overflow-x:auto;max-height:300px;overflow-y:auto;border:1px solid var(--color-border-tertiary);border-radius:10px;margin-top:10px}
+.imp-nota{font-size:12.5px;color:var(--color-text-secondary);margin-top:8px}
+.imp-err{color:#c62828;font-weight:600}
+.aj-info{background:#fff7ed;border:1px solid #f3d5ac;border-radius:10px;padding:9px 12px;font-size:13.5px;color:#8a5a17;margin-bottom:10px;font-weight:600}
+#pg-admin .aj-info{background:#fff7ed}
+</style>
+<script>
+/* =========== 1) CARGA POR LOTE DESDE CSV =========== */
+const IMP_CAMPOS=[
+  ['nombre','Nombre del producto *'],
+  ['codigo','C\u00f3digo / referencia'],
+  ['categoria','Categor\u00eda'],
+  ['costo','Costo (Bs.)'],
+  ['margen','% de incremento'],
+  ['precio','Precio de venta (Bs.)'],
+  ['stock','Stock'],
+  ['tipo','Tipo'],
+  ['medida','Medida'],
+  ['material','Material'],
+  ['acabado','Acabado'],
+  ['descripcion','Descripci\u00f3n'],
+  ['foto','Foto (enlace)']
+];
+let impCols=[], impFilas=[], impMap={};
+
+function csvPartir(texto){
+  const filas=[]; let f=[], campo='', dentro=false;
+  const sep = (texto.split('\n')[0].split(';').length > texto.split('\n')[0].split(',').length) ? ';' : ',';
+  for(let i=0;i<texto.length;i++){
+    const c=texto[i];
+    if(dentro){
+      if(c==='"'){ if(texto[i+1]==='"'){ campo+='"'; i++; } else dentro=false; }
+      else campo+=c;
+    }else{
+      if(c==='"') dentro=true;
+      else if(c===sep){ f.push(campo); campo=''; }
+      else if(c==='\n'){ f.push(campo); filas.push(f); f=[]; campo=''; }
+      else if(c!=='\r') campo+=c;
+    }
+  }
+  if(campo!==''||f.length){ f.push(campo); filas.push(f); }
+  return filas.filter(function(x){ return x.some(function(v){ return String(v).trim()!==''; }); });
+}
+
+function impAdivinar(col){
+  const c=col.toLowerCase().replace(/[^a-z0-9]/g,'');
+  if(/nombre|producto|descripcionproducto|articulo/.test(c)) return 'nombre';
+  if(/codigo|referencia|ref|sku/.test(c)) return 'codigo';
+  if(/categoria|familia|grupo|linea/.test(c)) return 'categoria';
+  if(/costo|compra/.test(c)) return 'costo';
+  if(/margen|incremento|utilidad|ganancia|porcentaje/.test(c)) return 'margen';
+  if(/precio|venta|pvp/.test(c)) return 'precio';
+  if(/stock|existencia|cantidad|inventario/.test(c)) return 'stock';
+  if(/tipo/.test(c)) return 'tipo';
+  if(/medida|diametro|dimension|largo/.test(c)) return 'medida';
+  if(/material/.test(c)) return 'material';
+  if(/acabado|terminado/.test(c)) return 'acabado';
+  if(/descripcion|detalle|observ/.test(c)) return 'descripcion';
+  if(/foto|imagen|url/.test(c)) return 'foto';
+  return '';
+}
+
+function impLeerArchivo(ev){
+  const file=ev.target.files&&ev.target.files[0]; if(!file) return;
+  document.getElementById('imp-nombre').textContent=file.name;
+  const rd=new FileReader();
+  rd.onload=function(e){
+    const filas=csvPartir(String(e.target.result));
+    if(filas.length<2){ alert('El archivo no tiene datos suficientes.'); return; }
+    impCols=filas[0].map(function(x){ return String(x).trim(); });
+    impFilas=filas.slice(1);
+    impMap={};
+    impCols.forEach(function(col,i){
+      const campo=impAdivinar(col);
+      if(campo && impMap[campo]===undefined) impMap[campo]=i;
+    });
+    impPintarMapeo();
+    document.getElementById('imp-mapeo').style.display='block';
+    impPrevia();
+  };
+  rd.readAsText(file,'UTF-8');
+  ev.target.value='';
+}
+
+function impPintarMapeo(){
+  const box=document.getElementById('imp-campos'); if(!box) return;
+  box.innerHTML=IMP_CAMPOS.map(function(pr){
+    const opts=['<option value="">\u2014 no usar \u2014</option>'].concat(impCols.map(function(c,i){
+      return '<option value="'+i+'"'+(impMap[pr[0]]===i?' selected':'')+'>'+escapeHtml(c)+'</option>';
+    })).join('');
+    return '<div><label>'+pr[1]+'</label><select onchange="impSetMap(\''+pr[0]+'\',this.value)">'+opts+'</select></div>';
+  }).join('');
+}
+function impSetMap(campo,val){
+  if(val==='') delete impMap[campo]; else impMap[campo]=parseInt(val,10);
+  impPrevia();
+}
+function impVal(fila,campo){
+  const i=impMap[campo];
+  if(i===undefined||i===null) return '';
+  return String(fila[i]===undefined?'':fila[i]).trim();
+}
+function impNum(fila,campo){
+  const t=impVal(fila,campo).replace(/[^0-9,.-]/g,'').replace(',','.');
+  if(t==='') return null;
+  const n=parseFloat(t);
+  return isNaN(n)?null:n;
+}
+
+function impPrevia(){
+  const box=document.getElementById('imp-previa'); if(!box) return;
+  if(impMap.nombre===undefined){
+    box.innerHTML='<div class="imp-nota imp-err">Indica cu\u00e1l columna tiene el <strong>nombre del producto</strong> para continuar.</div>';
+    return;
+  }
+  const muestra=impFilas.slice(0,8);
+  const filas=muestra.map(function(f){
+    const costo=impNum(f,'costo'), margen=impNum(f,'margen'), precio=impNum(f,'precio');
+    let venta=precio;
+    if(venta===null && costo!==null && margen!==null) venta=costo*(1+margen/100);
+    return '<tr>'
+      +'<td>'+escapeHtml(impVal(f,'nombre'))+'</td>'
+      +'<td>'+escapeHtml(impVal(f,'codigo'))+'</td>'
+      +'<td>'+escapeHtml(impVal(f,'categoria'))+'</td>'
+      +'<td>'+(costo!==null?fmtMoney(costo,'BS'):'\u2014')+'</td>'
+      +'<td>'+(margen!==null?(margen+'%'):'\u2014')+'</td>'
+      +'<td>'+(venta!==null&&venta!==undefined?fmtMoney(venta,'BS'):'\u2014')+'</td>'
+      +'<td>'+(impVal(f,'stock')||'\u2014')+'</td>'
+      +'</tr>';
+  }).join('');
+  box.innerHTML='<div class="imp-nota">Vista previa (primeras '+muestra.length+' de <strong>'+impFilas.length+'</strong> filas):</div>'
+    +'<div class="imp-wrap"><table class="imp-tabla"><thead><tr><th>Nombre</th><th>C\u00f3digo</th><th>Categor\u00eda</th><th>Costo</th><th>%</th><th>Precio</th><th>Stock</th></tr></thead><tbody>'+filas+'</tbody></table></div>'
+    +'<div class="imp-nota">Los precios se guardan anclados al d\u00f3lar con la tasa BCV del d\u00eda. Las categor\u00edas nuevas se crean solas.</div>';
+}
+
+function impCancelar(){
+  impCols=[]; impFilas=[]; impMap={};
+  document.getElementById('imp-mapeo').style.display='none';
+  document.getElementById('imp-nombre').textContent='';
+  document.getElementById('imp-estado').textContent='';
+}
+
+async function impImportar(){
+  if(!sb){ alert('Supabase no est\u00e1 configurado.'); return; }
+  if(impMap.nombre===undefined){ alert('Falta indicar la columna del nombre.'); return; }
+  if(!bcvRate){ alert('La tasa del d\u00eda a\u00fan no ha cargado. Espera unos segundos e intenta de nuevo.'); return; }
+  if(!confirm('Se importar\u00e1n '+impFilas.length+' filas. \u00bfContinuar?')) return;
+
+  const est=document.getElementById('imp-estado');
+  const actualiza=document.getElementById('imp-actualiza').checked;
+  let nuevos=0, actualizados=0, fallos=0;
+  const catsNuevas=[];
+
+  for(let i=0;i<impFilas.length;i++){
+    const f=impFilas[i];
+    const nombre=impVal(f,'nombre');
+    if(!nombre){ fallos++; continue; }
+    est.textContent='Importando '+(i+1)+' de '+impFilas.length+'...';
+
+    const codigo=impVal(f,'codigo');
+    let cat=impVal(f,'categoria') || (state.categories[0]||'Torniller\u00eda General');
+    if(!state.categories.includes(cat)){ state.categories.push(cat); catsNuevas.push(cat); }
+
+    const costoBs=impNum(f,'costo'), margen=impNum(f,'margen');
+    let precioBs=impNum(f,'precio');
+    if(precioBs===null && costoBs!==null && margen!==null) precioBs=costoBs*(1+margen/100);
+
+    const prod={
+      name:nombre, cat:cat, code:codigo,
+      desc:impVal(f,'descripcion'),
+      img:impVal(f,'foto'), img2:'',
+      price: (precioBs!==null) ? ('$'+(precioBs/bcvRate).toFixed(2)) : '',
+      costo: (costoBs!==null) ? +((costoBs/bcvRate).toFixed(4)) : null,
+      margen: margen,
+      stock: (impVal(f,'stock')==='') ? null : Math.max(0,parseInt(impNum(f,'stock')||0,10)),
+      tipo:impVal(f,'tipo'), medida:impVal(f,'medida'),
+      material:impVal(f,'material'), acabado:impVal(f,'acabado'),
+      isNew:false,
+      margenAt:(costoBs!==null&&margen!==null)?new Date().toISOString():null
+    };
+
+    try{
+      let existente=null;
+      if(actualiza && codigo){
+        existente=state.products.find(function(p){ return (p.code||'').trim().toLowerCase()===codigo.toLowerCase(); });
+      }
+      if(existente){
+        const r=await sb.from('productos').update(jsToDb(prod)).eq('id',existente.id);
+        if(r.error) throw r.error;
+        Object.assign(existente,prod,{id:existente.id,createdAt:existente.createdAt});
+        actualizados++;
+      }else{
+        const r=await sb.from('productos').insert(jsToDb(prod)).select().single();
+        if(r.error) throw r.error;
+        prod.id=r.data.id;
+        prod.createdAt=new Date(r.data.creado_en).getTime();
+        state.products.push(prod);
+        nuevos++;
+      }
+    }catch(e){
+      console.error('Fila '+(i+2)+':',e);
+      fallos++;
+    }
+  }
+
+  if(catsNuevas.length) saveState();
+  est.textContent='';
+  fillCatSelect(); renderAdminList(); fillAttrDatalists();
+  try{ renderPublic(); }catch(e){}
+  impCancelar();
+  alert('Importaci\u00f3n terminada \u2713\n\nNuevos: '+nuevos+'\nActualizados: '+actualizados+(fallos?('\nCon error: '+fallos):'')+(catsNuevas.length?('\nCategor\u00edas creadas: '+catsNuevas.join(', ')):''));
+}
+
+/* =========== 2) FILTROS PARA EL AJUSTE DE PRECIOS =========== */
+function ajFiltrados(){
+  const cat=(document.getElementById('aj-cat')||{}).value||'';
+  const fam=((document.getElementById('aj-fam')||{}).value||'').trim().toLowerCase();
+  const txt=((document.getElementById('aj-txt')||{}).value||'').trim().toLowerCase();
+  return state.products.filter(function(p){
+    if(cat && p.cat!==cat) return false;
+    if(fam && !((p.code||'').trim().toLowerCase().indexOf(fam)===0)) return false;
+    if(txt && !((p.name||'')+' '+(p.code||'')).toLowerCase().includes(txt)) return false;
+    return true;
+  });
+}
+
+function ajLlenarSelectores(){
+  const sc=document.getElementById('aj-cat');
+  if(sc && sc.options.length<=1){
+    sc.innerHTML='<option value="">Todas las categor\u00edas</option>'+state.categories.map(function(c){
+      return '<option value="'+escapeHtml(c)+'">'+escapeHtml(c)+'</option>';
+    }).join('');
+  }
+  const dl=document.getElementById('dl-familias');
+  if(dl){
+    const fams={};
+    state.products.forEach(function(p){
+      const c=(p.code||'').trim();
+      if(c.length>=3){ fams[c.slice(0,4)]=1; fams[c.slice(0,3)]=1; }
+    });
+    dl.innerHTML=Object.keys(fams).sort().map(function(v){ return '<option value="'+escapeHtml(v)+'">'; }).join('');
+  }
+}
+
+function renderAjusteList(){
+  ajLlenarSelectores();
+  const box=document.getElementById('aj-list');
+  const pctEl=document.getElementById('aj-pct');
+  if(!box||!pctEl) return;
+  const pct=parseFloat((pctEl.value||'').replace(',','.'));
+  const scope=document.getElementById('aj-scope').value;
+  const selMode=(scope==='sel');
+  const selRow=document.getElementById('aj-selall-row');
+  if(selRow) selRow.style.display=selMode?'flex':'none';
+
+  const base=ajFiltrados();
+  const conPrecio=base.filter(function(p){ return parsePrice(p.price)!=null; });
+
+  const info=document.getElementById('aj-info');
+  if(info){
+    const afectados=selMode?conPrecio.filter(function(p){return ajSel[p.id];}).length:conPrecio.length;
+    info.textContent='El filtro muestra '+base.length+' producto(s). Se ajustar\u00e1n '+afectados+' con precio cargado.';
+  }
+
+  const prods=[...base].sort(function(a,b){ return a.name.localeCompare(b.name); });
+  if(!prods.length){
+    box.innerHTML='<div style="padding:16px;text-align:center;color:var(--color-text-tertiary);font-size:14px">Ning\u00fan producto coincide con el filtro.</div>';
+    return;
+  }
+  box.innerHTML=prods.map(function(p){
+    const u=parsePrice(p.price);
+    const cur=(u!=null)?(bcvRate?fmtMoney(u*bcvRate,'BS'):('$'+u.toFixed(2))):'(sin precio)';
+    let nuevo='';
+    if(u!=null && !isNaN(pct)){
+      const nu=u*(1+pct/100);
+      nuevo='<span class="aj-new">\u2192 '+(bcvRate?fmtMoney(nu*bcvRate,'BS'):('$'+nu.toFixed(2)))+'</span>';
+    }
+    const chk=selMode?('<input type="checkbox" '+(ajSel[p.id]?'checked ':'')+'onchange="ajSel[\''+p.id+'\']=this.checked;renderAjusteList()">'):'';
+    return '<div class="aj-item">'+chk
+      +'<span class="aj-name">'+escapeHtml(p.name)+(p.code?(' <span style="font-weight:400;color:var(--color-text-secondary)">'+escapeHtml(p.code)+'</span>'):'')+'</span>'
+      +'<span class="aj-price">'+cur+'</span>'+nuevo+'</div>';
+  }).join('');
+}
+
+function ajSelectAll(v){ ajFiltrados().forEach(function(p){ ajSel[p.id]=v; }); renderAjusteList(); }
+
+async function aplicarAjuste(){
+  if(!sb){ alert('Supabase no est\u00e1 configurado.'); return; }
+  const pct=parseFloat((document.getElementById('aj-pct').value||'').replace(',','.'));
+  if(isNaN(pct)||pct===0){ alert('Escribe el porcentaje de ajuste (ej: 5 para aumentar 5%, -5 para rebajar 5%).'); return; }
+  const scope=document.getElementById('aj-scope').value;
+  let targets=ajFiltrados().filter(function(p){ return parsePrice(p.price)!=null; });
+  if(scope==='sel') targets=targets.filter(function(p){ return ajSel[p.id]; });
+  if(!targets.length){ alert('No hay productos que coincidan con el filtro.'); return; }
+  if(!confirm('Se ajustar\u00e1 el precio de '+targets.length+' producto(s) en '+pct+'%.\n\u00bfContinuar?')) return;
+  let ok=0,fail=0;
+  for(const p of targets){
+    const u=parsePrice(p.price);
+    const nu=+((u*(1+pct/100)).toFixed(2));
+    const nuevoPrecio='$'+nu.toFixed(2)+priceSuffix(p.price);
+    const res=await sb.from('productos').update({precio:nuevoPrecio}).eq('id',p.id);
+    if(res.error){ fail++; } else { p.price=nuevoPrecio; ok++; }
+  }
+  renderAjusteList(); renderAdminList();
+  try{ renderPublic(); }catch(e){}
+  alert('Listo \u2713 '+ok+' precio(s) actualizado(s)'+(fail?(' \u00b7 '+fail+' fallaron'):'')+'.');
 }
 </script>
 </body>
