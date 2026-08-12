@@ -720,9 +720,21 @@ function setCurrency(cur){
 async function loadState() {
   if (sb) {
     try {
-      const prodsRes = await sb.from('productos').select('*').order('creado_en', {ascending:true});
-      if (prodsRes.error) throw prodsRes.error;
-      state.products = (prodsRes.data||[]).map(dbToJs);
+      /* Supabase entrega maximo 1000 filas por consulta: se traen por lotes */
+      let _todos = [], _desde = 0;
+      const _LOTE = 1000;
+      while (true) {
+        const _r = await sb.from('productos').select('*')
+                    .order('creado_en', {ascending:true})
+                    .range(_desde, _desde + _LOTE - 1);
+        if (_r.error) throw _r.error;
+        const _d = _r.data || [];
+        _todos = _todos.concat(_d);
+        if (_d.length < _LOTE) break;
+        _desde += _LOTE;
+        if (_desde > 100000) break;
+      }
+      state.products = _todos.map(dbToJs);
       const cfgRes = await sb.from('config').select('*');
       (cfgRes.data||[]).forEach(function(r){
         if (r.id==='categories' && Array.isArray(r.data) && r.data.length) state.categories = r.data;
@@ -860,7 +872,7 @@ function renderPublic() {
   grid.innerHTML = prods.map(p => `
     <div class="prod-card">
       <div class="prod-img-wrap">
-        ${p.img ? `<img src="${p.img}" onerror="this.parentNode.innerHTML='🔩'">` : '🔩'}
+        ${p.img ? `<img loading="lazy" src="${p.img}" onerror="this.parentNode.innerHTML='🔩'">` : '🔩'}
         ${p.isNew ? '<span class="prod-new-badge">NUEVO</span>' : ''}
       </div>
       <div class="prod-body">
@@ -1465,7 +1477,7 @@ function renderPublic() {
     return `
     <div class="prod-card">
       <div class="prod-img-wrap">
-        ${p.img ? `<img src="${p.img}" onerror="this.parentNode.innerHTML='🔩'">` : '🔩'}
+        ${p.img ? `<img loading="lazy" src="${p.img}" onerror="this.parentNode.innerHTML='🔩'">` : '🔩'}
         ${p.isNew ? '<span class="prod-new-badge">NUEVO</span>' : ''}
       </div>
       <div class="prod-body">
@@ -2009,7 +2021,7 @@ function renderPublic(){
     return `
     <div class="prod-card">
       <div class="prod-img-wrap">
-        ${p.img ? `<img src="${p.img}" onerror="this.parentNode.innerHTML='🔩'">` : '🔩'}
+        ${p.img ? `<img loading="lazy" src="${p.img}" onerror="this.parentNode.innerHTML='🔩'">` : '🔩'}
         ${p.isNew ? '<span class="prod-new-badge">NUEVO</span>' : ''}
       </div>
       <div class="prod-body">
@@ -2188,7 +2200,7 @@ function renderPublic(){
     <div class="prod-card">
       <div class="prod-img-wrap">
         ${badge}
-        ${p.img ? `<img src="${p.img}" onerror="this.parentNode.innerHTML='🔩'">` : '🔩'}
+        ${p.img ? `<img loading="lazy" src="${p.img}" onerror="this.parentNode.innerHTML='🔩'">` : '🔩'}
         ${p.isNew ? '<span class="prod-new-badge">NUEVO</span>' : ''}
       </div>
       <div class="prod-body">
@@ -2541,7 +2553,7 @@ function renderPublic(){
     <div class="prod-card">
       <div class="prod-img-wrap" onclick="openLightbox('${p.id}')" title="Clic para ver más grande">
         ${badge}${multi}
-        ${p.img ? `<img src="${p.img}" onerror="this.parentNode.innerHTML='🔩'">` : '🔩'}
+        ${p.img ? `<img loading="lazy" src="${p.img}" onerror="this.parentNode.innerHTML='🔩'">` : '🔩'}
         ${p.isNew ? '<span class="prod-new-badge">NUEVO</span>' : ''}
       </div>
       <div class="prod-body">
