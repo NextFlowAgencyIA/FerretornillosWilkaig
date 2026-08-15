@@ -3860,5 +3860,150 @@ async function aplicarAjuste(){
   alert('Listo \u2713 '+ok+' precio(s) actualizado(s)'+(fail?(' \u00b7 '+fail+' fallaron'):'')+'.');
 }
 </script>
+<style>
+/* =====================================================================
+   AJUSTES PARA CELULAR  (se aplican solo en pantallas pequenas)
+   ===================================================================== */
+html,body{max-width:100%;overflow-x:hidden}
+img{max-width:100%}
+
+@media(max-width:700px){
+  /* ---- Encabezado ---- */
+  .pub-nav{padding:8px 10px;gap:8px}
+  .nav-brand{gap:7px;min-width:0}
+  .nav-brand img{height:38px!important;width:38px!important;flex-shrink:0}
+  .brand-name{font-size:17px!important;letter-spacing:1.5px!important;line-height:1.15}
+  .brand-sub{font-size:8.5px!important;letter-spacing:1px!important;line-height:1.2}
+  .nav-link,.nav-cart-btn{padding:6px 9px!important;font-size:13px!important}
+  .nav-cart-btn{font-size:15px!important}
+
+  /* ---- Barra de la tasa ---- */
+  .rate-bar{padding:6px 10px;font-size:11.5px;gap:6px}
+  .rate-info .rate-date{font-size:11px}
+  .rate-info .rate-val{font-size:13.5px}
+  .cur-switch button{padding:4px 9px!important;font-size:11.5px!important}
+
+  /* ---- Banner ---- */
+  .pub-hero{padding:26px 14px 22px}
+  .hero-logo{width:68px!important;height:68px!important;border-width:3px!important;margin-bottom:10px}
+  .hero-title{font-size:30px!important;letter-spacing:2px!important}
+  .hero-sub{font-size:14px!important}
+  .hero-tag{font-size:11.5px!important;padding:4px 12px!important}
+
+  /* ---- Buscador y categorias ---- */
+  .search-wrap{padding:10px 12px}
+  .search-wrap input{font-size:15px}
+  .cats-scroll{padding:8px 12px;gap:5px}
+  .cat-pill{font-size:12.5px!important;padding:6px 12px!important}
+
+  /* ---- Portada de categorias ---- */
+  #home-cats{padding:20px 12px 26px}
+  .hc-head h2{font-size:21px}
+  .hc-head p{font-size:13px}
+  .hc-grid{grid-template-columns:repeat(2,1fr);gap:10px}
+  .hc-card{padding:14px 8px}
+  .hc-img{width:64px;height:64px;font-size:26px}
+  .hc-name{font-size:14px}
+  .hc-count{font-size:11.5px}
+  .hc-btn{font-size:12.5px}
+
+  /* ---- Catalogo ---- */
+  .cat-topbar{padding:10px 12px 2px;gap:8px}
+  .cat-title{font-size:17px}
+  .cat-count{font-size:12px}
+  .btn-back-cats,.btn-toggle-flt{font-size:12.5px;padding:6px 11px}
+  .catalog-wrap{padding:8px 10px 20px;gap:10px}
+  #filter-panel{padding:11px}
+
+  /* ---- Tarjetas de producto ---- */
+  .prods-grid{gap:9px}
+  .prod-name{font-size:13.5px!important;line-height:1.28!important}
+  .prod-cat{font-size:10px}
+  .prod-code,.prod-attrs{font-size:10.5px}
+  .prod-price{font-size:18px!important}
+  .prod-unit{font-size:10.5px}
+  .prod-stock-badge,.prod-new-badge{font-size:10px!important;padding:2px 7px!important}
+  /* la fila de comprar se apila para que no se salga */
+  .prod-buy-row{flex-direction:column;gap:6px;padding:8px}
+  .qty-box{width:100%;justify-content:center}
+  .qty-box button{width:34px;height:32px}
+  .qty-box input{width:44px}
+  .prod-buy-row .prod-add-btn{width:100%;padding:9px;font-size:14px}
+
+  /* ---- Pie de pagina ---- */
+  .copyright-bar{font-size:11px;padding:11px 12px;line-height:1.6}
+}
+
+@media(max-width:400px){
+  .brand-name{font-size:15.5px!important;letter-spacing:1px!important}
+  .brand-sub{display:none}          /* el subtitulo no cabe en pantallas muy chicas */
+  .hero-title{font-size:26px!important}
+  .prods-grid{grid-template-columns:repeat(2,1fr);gap:7px}
+  .prod-price{font-size:16.5px!important}
+  .hc-grid{gap:8px}
+}
+
+/* =====================================================================
+   PANEL ADMIN EN CELULAR
+   ===================================================================== */
+@media(max-width:700px){
+  .form-row,.form-row.full{grid-template-columns:1fr!important;gap:8px}
+  .card{padding:0.9rem;border-radius:10px}
+  .admin-panel h3{font-size:15.5px!important}
+  .admin-tabs{gap:5px;margin-bottom:.8rem}
+  .atab{font-size:12.5px!important;padding:6px 10px!important}
+  .admin-head,.admin-topbar{flex-wrap:wrap;gap:8px}
+  #pg-admin{padding-left:10px;padding-right:10px}
+
+  /* tablas con desplazamiento horizontal propio */
+  .gan-tabla,.imp-tabla{font-size:12px}
+  .imp-wrap,.admin-panel .card>div[style*="overflow-x"]{-webkit-overflow-scrolling:touch}
+
+  /* resumenes en dos columnas */
+  .gan-resumen,.ven-resumen{grid-template-columns:repeat(2,1fr);gap:8px}
+  .gan-card .gv,.ven-card .vv{font-size:16px}
+
+  /* registrar venta: cada renglon apilado */
+  .venta-row{grid-template-columns:1fr 58px 1fr 30px;gap:5px}
+  .venta-row select{font-size:13px}
+  .venta-sub{font-size:13px}
+
+  /* lista de productos del admin */
+  .prod-list-item{gap:8px;padding:9px 0}
+  .prod-list-name{font-size:13.5px}
+  .prod-list-meta{font-size:11.5px}
+  .prod-thumb{width:44px!important;height:44px!important}
+
+  /* importacion por lote */
+  .imp-grid{grid-template-columns:1fr;gap:8px}
+  .imp-wrap{max-height:240px}
+
+  /* ventas registradas */
+  .ven-cab{gap:6px}
+  .ven-fecha{font-size:12px}
+  .ven-btn-anular{padding:4px 10px;font-size:12px}
+}
+
+/* Visor de imagenes en celular */
+@media(max-width:700px){
+  .lb-overlay{padding:14px}
+  .lb-stage{padding:10px;border-radius:10px}
+  .lb-stage img{max-height:58vh}
+  .lb-x{top:-38px;font-size:26px}
+  .lb-nav{width:36px;height:36px;font-size:19px}
+  .lb-name{font-size:16px}
+  .lb-price{font-size:18px}
+  .lb-meta{font-size:12.5px}
+}
+</style>
+<script>
+/* La barra de la tasa se acomoda bajo el menu tambien al girar el telefono */
+(function(){
+  function acomodar(){ try{ fixRateBar(); }catch(e){} }
+  window.addEventListener('orientationchange',function(){ setTimeout(acomodar,250); });
+  window.addEventListener('resize',function(){ setTimeout(acomodar,150); });
+  [400,1000,2000].forEach(function(ms){ setTimeout(acomodar,ms); });
+})();
+</script>
 </body>
 </html>
