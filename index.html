@@ -725,7 +725,7 @@ async function loadState() {
       const _LOTE = 1000;
       while (true) {
         const _r = await sb.from('productos').select('*')
-                    .order('creado_en', {ascending:true})
+                    .order('id', {ascending:true})
                     .range(_desde, _desde + _LOTE - 1);
         if (_r.error) throw _r.error;
         const _d = _r.data || [];
@@ -3864,7 +3864,7 @@ async function aplicarAjuste(){
 /* =====================================================================
    AJUSTES PARA CELULAR  (se aplican solo en pantallas pequenas)
    ===================================================================== */
-html,body{max-width:100%;overflow-x:hidden}
+html,body{max-width:100%;overflow-x:clip}
 img{max-width:100%}
 
 @media(max-width:700px){
@@ -4042,6 +4042,156 @@ img{max-width:100%}
     s.id='ver-marca'; s.className='ver-marca'; s.textContent='v32';
     b.appendChild(s);
   }
+})();
+</script>
+<style>
+/* ===== La barra de la tasa siempre visible al desplazarse ===== */
+html,body{overflow-x:clip}
+#pg-public{overflow:visible}
+.pub-nav{position:sticky!important;top:0!important;z-index:30!important}
+.rate-bar{
+  position:sticky!important;
+  z-index:29!important;
+  background:#fff!important;
+  box-shadow:0 2px 6px rgba(0,0,0,.07);
+}
+/* la fila de categorias tambien queda pegada, debajo de la tasa */
+.cats-scroll{position:sticky;z-index:28;background:#fff}
+</style>
+<script>
+/* Calcula la altura real del menu y de la tasa para apilarlos sin huecos */
+(function(){
+  function acomodar(){
+    var nav=document.querySelector('.pub-nav');
+    var rb=document.querySelector('.rate-bar');
+    var cs=document.getElementById('cats-scroll');
+    if(!nav||!rb) return;
+    var hNav=nav.offsetHeight;
+    rb.style.top=(hNav-1)+'px';
+    if(cs && cs.offsetParent!==null){
+      cs.style.top=(hNav-1+rb.offsetHeight)+'px';
+    }
+  }
+  window.addEventListener('resize',acomodar);
+  window.addEventListener('orientationchange',function(){ setTimeout(acomodar,250); });
+  window.addEventListener('scroll',function(){
+    if(!window._acomodaPend){
+      window._acomodaPend=true;
+      requestAnimationFrame(function(){ acomodar(); window._acomodaPend=false; });
+    }
+  },{passive:true});
+  [0,300,900,1800].forEach(function(ms){ setTimeout(acomodar,ms); });
+  var _rp=window.renderPublic;
+  if(typeof _rp==='function'){
+    window.renderPublic=function(){
+      var r=_rp.apply(this,arguments);
+      setTimeout(acomodar,30);
+      return r;
+    };
+  }
+  var b=document.getElementById('ver-marca');
+  if(b) b.textContent='v33';
+})();
+</script>
+<script>
+/* Red de seguridad: si por lo que sea llegara un producto repetido,
+   se descarta antes de pintarlo (evita fichas duplicadas en pantalla) */
+(function(){
+  function limpiarRepetidos(){
+    if(!window.state || !Array.isArray(state.products)) return 0;
+    const vistos={}, unicos=[];
+    let quitados=0;
+    for(const p of state.products){
+      const k=String(p.id);
+      if(vistos[k]){ quitados++; continue; }
+      vistos[k]=1; unicos.push(p);
+    }
+    if(quitados){ state.products=unicos; console.warn('Fichas repetidas descartadas:',quitados); }
+    return quitados;
+  }
+  const _rp=window.renderPublic;
+  if(typeof _rp==='function'){
+    window.renderPublic=function(){
+      limpiarRepetidos();
+      return _rp.apply(this,arguments);
+    };
+  }
+  const _ra=window.renderAdminList;
+  if(typeof _ra==='function'){
+    window.renderAdminList=function(){
+      limpiarRepetidos();
+      return _ra.apply(this,arguments);
+    };
+  }
+  [800,2500].forEach(function(ms){ setTimeout(function(){
+    if(limpiarRepetidos()){ try{ renderPublic(); }catch(e){} }
+  },ms); });
+  var b=document.getElementById('ver-marca');
+  if(b) b.textContent='v34';
+})();
+</script>
+<style>
+/* ===== Barra de la tasa: refuerzo final ===== */
+.pub-nav{position:-webkit-sticky!important;position:sticky!important;top:0!important;z-index:30!important}
+.rate-bar{position:-webkit-sticky!important;position:sticky!important;z-index:29!important;background:#fff!important}
+.cats-scroll{position:-webkit-sticky;position:sticky;z-index:28;background:#fff}
+</style>
+<script>
+/* Se asegura de que nada impida que la barra quede pegada arriba */
+(function(){
+  function destrabar(){
+    var rb=document.querySelector('.rate-bar');
+    var nav=document.querySelector('.pub-nav');
+    if(!rb||!nav) return;
+
+    /* 1) ningun contenedor padre puede recortar el contenido, o el pegado deja de funcionar */
+    var el=rb.parentElement;
+    while(el && el!==document.documentElement){
+      var st=getComputedStyle(el);
+      if(st.overflow!=='visible' || st.overflowX!=='visible' || st.overflowY!=='visible'){
+        el.style.setProperty('overflow','visible','important');
+        el.style.setProperty('overflow-x','visible','important');
+        el.style.setProperty('overflow-y','visible','important');
+      }
+      if(st.transform && st.transform!=='none') el.style.setProperty('transform','none','important');
+      el=el.parentElement;
+    }
+    document.body.style.setProperty('overflow-x','clip');
+    document.documentElement.style.setProperty('overflow-x','clip');
+
+    /* 2) se reafirma el pegado y se calcula la altura del menu */
+    nav.style.setProperty('position','sticky','important');
+    nav.style.setProperty('top','0px','important');
+    rb.style.setProperty('position','sticky','important');
+    rb.style.setProperty('top',(nav.offsetHeight-1)+'px','important');
+    rb.style.setProperty('z-index','29','important');
+
+    var cs=document.getElementById('cats-scroll');
+    if(cs && cs.offsetParent!==null){
+      cs.style.setProperty('position','sticky','important');
+      cs.style.setProperty('top',(nav.offsetHeight-1+rb.offsetHeight)+'px','important');
+      cs.style.setProperty('z-index','28','important');
+    }
+  }
+  window.addEventListener('resize',destrabar);
+  window.addEventListener('orientationchange',function(){ setTimeout(destrabar,250); });
+  window.addEventListener('scroll',function(){
+    if(!window._destrabaPend){
+      window._destrabaPend=true;
+      requestAnimationFrame(function(){ destrabar(); window._destrabaPend=false; });
+    }
+  },{passive:true});
+  [0,200,600,1500,3000].forEach(function(ms){ setTimeout(destrabar,ms); });
+  var _rp=window.renderPublic;
+  if(typeof _rp==='function'){
+    window.renderPublic=function(){
+      var r=_rp.apply(this,arguments);
+      setTimeout(destrabar,40);
+      return r;
+    };
+  }
+  var b=document.getElementById('ver-marca');
+  if(b) b.textContent='v35';
 })();
 </script>
 </body>
