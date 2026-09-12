@@ -4191,7 +4191,91 @@ html,body{overflow-x:clip}
     };
   }
   var b=document.getElementById('ver-marca');
-  if(b) b.textContent='v35';
+  if(b) b.textContent='v37';
+})();
+</script>
+<script>
+/* =====================================================================
+   NextFlow AI · Recordatorio de plan  ·  MODO SOLO AVISOS
+   No bloquea nada: solo muestra el estado del plan en el panel del dueño.
+   ===================================================================== */
+(function(){
+  'use strict';
+  var CFG={
+    sitio:'wilkaig',
+    marca:'NextFlow AI',
+    whatsapp:'528140706304',
+    avisarDesde:10
+  };
+
+  function dias(a,b){ return Math.round((a-b)/86400000); }
+  function enPanel(){ return (location.hash||'').toLowerCase().indexOf('admin')!==-1; }
+  function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  function css(){
+    if(document.getElementById('nf-av-css')) return;
+    var s=document.createElement('style'); s.id='nf-av-css';
+    s.textContent=''
+      +'.nf-av{position:fixed;left:12px;right:12px;bottom:12px;z-index:9990;border-radius:12px;'
+      +'padding:13px 42px 13px 15px;font-family:system-ui,Arial,sans-serif;font-size:14px;line-height:1.55;'
+      +'box-shadow:0 6px 22px rgba(0,0,0,.16);max-width:620px;margin:0 auto}'
+      +'.nf-av.aviso{background:#fff4e2;border:1px solid #f0cd9b;color:#7a4d06}'
+      +'.nf-av.urge{background:#fdecec;border:1px solid #edb9b9;color:#8c2020}'
+      +'.nf-av b{display:block;margin-bottom:2px;font-size:14.5px}'
+      +'.nf-av .nf-x{position:absolute;right:9px;top:7px;background:none;border:none;font-size:19px;'
+      +'color:inherit;opacity:.6;cursor:pointer;line-height:1}'
+      +'.nf-av .nf-x:hover{opacity:1}'
+      +'.nf-av .nf-w{display:inline-block;margin-top:7px;background:#25D366;color:#fff;text-decoration:none;'
+      +'border-radius:8px;padding:6px 13px;font-size:13px;font-weight:700}';
+    document.head.appendChild(s);
+  }
+
+  function mostrar(titulo,texto,urgente){
+    css();
+    var v=document.getElementById('nf-av'); if(v) v.remove();
+    var d=document.createElement('div');
+    d.id='nf-av'; d.className='nf-av '+(urgente?'urge':'aviso');
+    var wa = CFG.whatsapp
+      ? '<a class="nf-w" target="_blank" rel="noopener" href="https://wa.me/'+CFG.whatsapp
+        +'?text='+encodeURIComponent('Hola, quiero renovar el plan de servicio de la pagina')+'">Escribir para renovar</a>'
+      : '';
+    d.innerHTML='<b>'+esc(titulo)+'</b>'+esc(texto)+wa
+      +'<button class="nf-x" onclick="this.parentNode.remove()">&times;</button>';
+    document.body.appendChild(d);
+  }
+
+  async function revisar(){
+    if(!enPanel()) return;                 /* los clientes nunca ven esto */
+    if(typeof sb==='undefined' || !sb) return;
+    try{
+      var r=await sb.from('licencia').select('*').eq('sitio',CFG.sitio).single();
+      if(r.error||!r.data) return;
+      var l=r.data;
+      var hoy=new Date(); hoy.setHours(0,0,0,0);
+      var vence=new Date(l.vence_el+'T00:00:00');
+      var faltan=dias(vence,hoy);
+      var monto=(l.monto_mensual!=null?l.monto_mensual:'')+' '+(l.moneda||'');
+
+      if(faltan>CFG.avisarDesde) return;
+
+      if(faltan>0){
+        mostrar('Plan de servicio: quedan '+faltan+' dia'+(faltan===1?'':'s'),
+                'Tu plan mensual de soporte y mantenimiento ('+monto+') vence el '+l.vence_el
+                +'. Renuevalo para mantener el servicio activo.', false);
+      }else if(faltan===0){
+        mostrar('Tu plan vence hoy',
+                'El plan mensual de soporte ('+monto+') vence hoy '+l.vence_el+'.', true);
+      }else{
+        mostrar('Plan vencido hace '+Math.abs(faltan)+' dia'+(Math.abs(faltan)===1?'':'s'),
+                'El plan mensual de soporte ('+monto+') vencio el '+l.vence_el
+                +'. Mientras no se regularice, el servicio de soporte y mantenimiento queda en pausa.', true);
+      }
+    }catch(e){ /* si algo falla, no se muestra nada */ }
+  }
+
+  setTimeout(revisar,2200);
+  window.addEventListener('hashchange',function(){ setTimeout(revisar,600); });
+  setInterval(revisar,45*60*1000);
 })();
 </script>
 </body>
