@@ -4191,7 +4191,7 @@ html,body{overflow-x:clip}
     };
   }
   var b=document.getElementById('ver-marca');
-  if(b) b.textContent='v37';
+  if(b) b.textContent='v39';
 })();
 </script>
 <script>
@@ -4276,6 +4276,304 @@ html,body{overflow-x:clip}
   setTimeout(revisar,2200);
   window.addEventListener('hashchange',function(){ setTimeout(revisar,600); });
   setInterval(revisar,45*60*1000);
+})();
+</script>
+<style>
+/* ===== Pantalla "como pagar" (no bloquea nada) ===== */
+.nfp-fondo{position:fixed;inset:0;z-index:9995;background:rgba(10,20,35,.72);display:flex;align-items:center;
+  justify-content:center;padding:16px;font-family:system-ui,Arial,sans-serif;overflow-y:auto}
+.nfp-caja{background:#fff;border-radius:16px;max-width:470px;width:100%;padding:24px;color:#1d2b36;
+  box-shadow:0 18px 50px rgba(0,0,0,.35);max-height:92vh;overflow-y:auto}
+.nfp-caja h3{margin:0 0 4px;font-size:19px;font-family:'Oswald',system-ui,sans-serif}
+.nfp-sub{color:#5c6b78;font-size:13.5px;line-height:1.6;margin-bottom:14px}
+.nfp-monto{background:#fff7ed;border:1px solid #f3d5ac;border-radius:12px;padding:13px;text-align:center;margin-bottom:14px}
+.nfp-monto .n{font-size:27px;font-weight:800;color:#F7931E;line-height:1.1;font-family:'Oswald',system-ui,sans-serif}
+.nfp-monto .d{font-size:12px;color:#8a5a17;margin-top:2px}
+.nfp-op{display:flex;align-items:center;gap:10px;border:1px solid #e3e7eb;border-radius:10px;padding:10px 12px;
+  margin-bottom:7px;font-size:13.5px;cursor:pointer;background:#fff;text-decoration:none;color:#1d2b36}
+.nfp-op:hover{border-color:#F7931E;background:#fffaf3}
+.nfp-op b{display:block}.nfp-op small{color:#5c6b78;font-size:12px;word-break:break-all}
+.nfp-b{width:100%;border:none;border-radius:10px;padding:11px;font-size:14.5px;font-weight:700;cursor:pointer;
+  margin-top:6px;font-family:inherit}
+.nfp-b1{background:#F7931E;color:#fff}
+.nfp-b2{background:#fff;color:#1d2b36;border:1.5px solid #cfd8df}
+.nfp-b3{background:#25D366;color:#fff}
+.nfp-caja label{font-size:12.5px;font-weight:600;color:#5c6b78;display:block;margin-bottom:3px}
+.nfp-caja input,.nfp-caja select,.nfp-caja textarea{width:100%;padding:9px 11px;border:1px solid #cfd8df;
+  border-radius:8px;font-size:14px;margin-bottom:9px;font-family:inherit;box-sizing:border-box}
+.nfp-ok{background:#e4f5ec;border:1px solid #a8dcc3;color:#14724a;border-radius:10px;padding:12px;font-size:13.5px;line-height:1.6}
+.nfp-x{float:right;background:none;border:none;font-size:22px;color:#98a4ae;cursor:pointer;line-height:1;margin:-6px -4px 0 0}
+.nf-av .nf-pagar{display:inline-block;margin-top:8px;margin-right:8px;background:#F7931E;color:#fff;border:none;
+  border-radius:8px;padding:7px 14px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
+</style>
+<script>
+/* =====================================================================
+   NextFlow AI · Pantalla de pago del plan  (NO bloquea el sitio)
+   ===================================================================== */
+(function(){
+  'use strict';
+
+  /* ---------------- TUS DATOS DE COBRO ---------------- */
+  var PAGO = {
+    whatsapp:  '528140706304',
+    paypal:    '',     /* ej: https://paypal.me/tuusuario   */
+    binance:   '',     /* ej: tucorreo@ejemplo.com          */
+    zelle:     '',     /* ej: tucorreo@ejemplo.com          */
+    pagomovil: '',     /* ej: Banco 0102 · V-00000000 · 0414-0000000 */
+    otro:      ''      /* cualquier otro dato que quieras mostrar    */
+  };
+  /* ---------------------------------------------------- */
+
+  var datosLic = null;
+
+  function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  window.nfpCopiar = function(t){
+    try{ navigator.clipboard.writeText(t); alert('Copiado:\n'+t); }catch(e){ alert(t); }
+  };
+  window.nfpCerrar = function(){
+    var f=document.getElementById('nfp'); if(f) f.remove();
+  };
+  window.nfpWhats = function(){
+    var neg = (datosLic && datosLic.cliente) ? datosLic.cliente : 'mi negocio';
+    var t = encodeURIComponent('Hola Zoraida, soy de '+neg+'. Quiero pagar el plan mensual del sitio web. ¿Cómo procedemos?');
+    window.open('https://wa.me/'+PAGO.whatsapp+'?text='+t,'_blank');
+  };
+
+  function metodos(){
+    var h='', hay=false;
+    if(PAGO.paypal){ hay=true;
+      h+='<a class="nfp-op" href="'+esc(PAGO.paypal)+'" target="_blank" rel="noopener">'+
+         '<span style="font-size:19px">&#128179;</span><span><b>PayPal</b><small>'+esc(PAGO.paypal)+'</small></span></a>'; }
+    if(PAGO.binance){ hay=true;
+      h+='<div class="nfp-op" onclick="nfpCopiar(\''+esc(PAGO.binance)+'\')">'+
+         '<span style="font-size:19px">&#8383;</span><span><b>Binance Pay</b><small>'+esc(PAGO.binance)+' · toca para copiar</small></span></div>'; }
+    if(PAGO.zelle){ hay=true;
+      h+='<div class="nfp-op" onclick="nfpCopiar(\''+esc(PAGO.zelle)+'\')">'+
+         '<span style="font-size:19px">&#127974;</span><span><b>Zelle</b><small>'+esc(PAGO.zelle)+' · toca para copiar</small></span></div>'; }
+    if(PAGO.pagomovil){ hay=true;
+      h+='<div class="nfp-op" onclick="nfpCopiar(\''+esc(PAGO.pagomovil)+'\')">'+
+         '<span style="font-size:19px">&#128241;</span><span><b>Pago móvil</b><small>'+esc(PAGO.pagomovil)+' · toca para copiar</small></span></div>'; }
+    if(PAGO.otro){ hay=true;
+      h+='<div class="nfp-op" onclick="nfpCopiar(\''+esc(PAGO.otro)+'\')">'+
+         '<span style="font-size:19px">&#128176;</span><span><b>Otro medio</b><small>'+esc(PAGO.otro)+'</small></span></div>'; }
+    if(!hay){
+      h='<div class="nfp-op" onclick="nfpWhats()"><span style="font-size:19px">&#128241;</span>'+
+        '<span><b>Escríbeme por WhatsApp</b><small>Te indico los datos para el pago</small></span></div>';
+    }
+    return h;
+  }
+
+  window.nfpAbrir = async function(){
+    if(document.getElementById('nfp')) return;
+    if(!datosLic) await cargarLic();
+    var monto  = (datosLic && datosLic.monto_mensual!=null) ? datosLic.monto_mensual : 45;
+    var moneda = (datosLic && datosLic.moneda) || 'USD';
+    var vence  = datosLic ? datosLic.vence_el : '';
+
+    var d=document.createElement('div');
+    d.id='nfp'; d.className='nfp-fondo';
+    d.innerHTML=
+      '<div class="nfp-caja">'+
+        '<button class="nfp-x" onclick="nfpCerrar()">&times;</button>'+
+        '<h3>Pagar el plan mensual</h3>'+
+        '<div class="nfp-sub">Soporte y mantenimiento del sistema web'+(vence?(' · vence el '+esc(vence)):'')+'.</div>'+
+        '<div class="nfp-monto"><div class="n">'+esc(String(monto))+' '+esc(moneda)+'</div>'+
+        '<div class="d">Plan mensual</div></div>'+
+
+        '<div id="nfp-1">'+
+          '<div style="font-size:12.5px;font-weight:700;color:#5c6b78;margin-bottom:7px">1. Realiza el pago</div>'+
+          metodos()+
+          '<div style="font-size:12.5px;font-weight:700;color:#5c6b78;margin:13px 0 7px">2. Avísame</div>'+
+          '<button class="nfp-b nfp-b1" onclick="nfpForm()">Ya realicé el pago</button>'+
+          '<button class="nfp-b nfp-b3" onclick="nfpWhats()">Escribir por WhatsApp</button>'+
+          '<button class="nfp-b nfp-b2" onclick="nfpCerrar()">Cerrar</button>'+
+        '</div>'+
+
+        '<div id="nfp-2" style="display:none">'+
+          '<label>Forma de pago</label>'+
+          '<select id="nfp-metodo"><option>PayPal</option><option>Binance</option><option>Zelle</option>'+
+          '<option>Pago móvil</option><option>Transferencia</option><option>Efectivo</option><option>Otro</option></select>'+
+          '<label>Número de referencia o comprobante</label><input id="nfp-ref" placeholder="Ej: 0123456789">'+
+          '<label>Monto pagado</label><input id="nfp-monto" type="number" step="0.01" value="'+esc(String(monto))+'">'+
+          '<label>Nota (opcional)</label><textarea id="nfp-nota" rows="2"></textarea>'+
+          '<button class="nfp-b nfp-b1" onclick="nfpEnviar()">Enviar</button>'+
+          '<button class="nfp-b nfp-b2" onclick="nfpVolver()">Volver</button>'+
+        '</div>'+
+
+        '<div id="nfp-3" style="display:none">'+
+          '<div class="nfp-ok"><b>&#10003; Recibido</b><br>Gracias. En cuanto verifique el pago, actualizo tu fecha de vencimiento y te confirmo.</div>'+
+          '<button class="nfp-b nfp-b3" style="margin-top:10px" onclick="nfpWhats()">Avisar por WhatsApp</button>'+
+          '<button class="nfp-b nfp-b2" onclick="nfpCerrar()">Cerrar</button>'+
+        '</div>'+
+      '</div>';
+    document.body.appendChild(d);
+    d.addEventListener('click', function(ev){ if(ev.target===d) nfpCerrar(); });
+  };
+
+  window.nfpForm   = function(){ document.getElementById('nfp-1').style.display='none'; document.getElementById('nfp-2').style.display='block'; };
+  window.nfpVolver = function(){ document.getElementById('nfp-2').style.display='none'; document.getElementById('nfp-1').style.display='block'; };
+
+  window.nfpEnviar = async function(){
+    var ref=(document.getElementById('nfp-ref').value||'').trim();
+    if(!ref){ alert('Escribe el número de referencia del pago.'); return; }
+    if(typeof sb==='undefined' || !sb){ alert('Sin conexión. Avísame por WhatsApp.'); return; }
+    var datos={
+      sitio:'wilkaig',
+      monto: parseFloat(document.getElementById('nfp-monto').value)||null,
+      moneda:(datosLic && datosLic.moneda)||'USD',
+      metodo: document.getElementById('nfp-metodo').value,
+      referencia: ref,
+      nota:(document.getElementById('nfp-nota').value||'').trim(),
+      estado:'pendiente'
+    };
+    var r=await sb.from('pagos').insert(datos);
+    if(r.error){ alert('No se pudo enviar: '+r.error.message+'\n\nAvísame por WhatsApp.'); return; }
+    document.getElementById('nfp-2').style.display='none';
+    document.getElementById('nfp-3').style.display='block';
+  };
+
+  async function cargarLic(){
+    if(typeof sb==='undefined' || !sb) return;
+    try{
+      var r=await sb.from('licencia').select('*').eq('sitio','wilkaig').single();
+      if(!r.error) datosLic=r.data;
+    }catch(e){}
+  }
+
+  /* agrega el boton "Cómo pagar" al aviso del plan */
+  function ponerBoton(){
+    var av=document.getElementById('nf-av');
+    if(!av || av.querySelector('.nf-pagar')) return;
+    var b=document.createElement('button');
+    b.className='nf-pagar';
+    b.textContent='Cómo pagar';
+    b.onclick=function(){ nfpAbrir(); };
+    var wa=av.querySelector('.nf-w');
+    if(wa) av.insertBefore(b, wa); else av.appendChild(b);
+  }
+  setInterval(ponerBoton, 1200);
+  setTimeout(cargarLic, 2500);
+})();
+</script>
+<style>
+/* ===== Bloqueo del panel por plan vencido (la tienda sigue abierta) ===== */
+.nfb-fondo{position:fixed;inset:0;z-index:9997;background:linear-gradient(160deg,#14202c 0%,#1d2b36 100%);
+  display:flex;align-items:center;justify-content:center;padding:18px;font-family:system-ui,Arial,sans-serif;overflow-y:auto}
+.nfb-caja{background:#fff;border-radius:18px;max-width:480px;width:100%;padding:28px;color:#1d2b36;
+  box-shadow:0 20px 55px rgba(0,0,0,.45);max-height:92vh;overflow-y:auto;text-align:center}
+.nfb-caja .cand{font-size:44px;line-height:1;margin-bottom:10px}
+.nfb-caja h3{margin:0 0 8px;font-size:21px;font-family:'Oswald',system-ui,sans-serif}
+.nfb-caja p{color:#5c6b78;font-size:14.5px;line-height:1.65;margin:0 0 8px}
+.nfb-dias{background:#fdecec;border:1px solid #f0bdbd;color:#98231f;border-radius:12px;padding:11px;
+  font-size:14px;font-weight:700;margin:14px 0}
+.nfb-b{width:100%;border:none;border-radius:10px;padding:12px;font-size:15px;font-weight:700;cursor:pointer;
+  margin-top:8px;font-family:inherit}
+.nfb-b1{background:#F7931E;color:#fff}
+.nfb-b2{background:#25D366;color:#fff}
+.nfb-b3{background:#fff;color:#1d2b36;border:1.5px solid #cfd8df}
+.nfb-pie{margin-top:16px;font-size:12px;color:#8b959d;line-height:1.6}
+.nfb-pie b{color:#F7931E}
+.nfb-tienda{display:inline-block;margin-top:12px;font-size:13.5px;color:#1447C4;text-decoration:none;font-weight:600}
+</style>
+<script>
+/* =====================================================================
+   NextFlow AI · Acceso al panel segun el plan
+   La TIENDA nunca se bloquea. Solo el panel de administracion.
+   ===================================================================== */
+(function(){
+  'use strict';
+  var SITIO='wilkaig';
+  var lic=null, yaMostrado=false;
+
+  function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function enPanel(){ return (location.hash||'').toLowerCase().indexOf('admin')!==-1; }
+
+  function diasVencido(){
+    if(!lic) return null;
+    var hoy=new Date(); hoy.setHours(0,0,0,0);
+    var vence=new Date(lic.vence_el+'T00:00:00');
+    var limite=new Date(vence.getTime()+(lic.dias_gracia||0)*86400000);
+    return { desdeVence: Math.round((hoy-vence)/86400000),
+             pasoLimite: hoy > limite,
+             suspendida: lic.estado==='suspendida' };
+  }
+
+  /* El cliente SIEMPRE puede llevarse su informacion */
+  window.nfbDescargar = async function(){
+    try{
+      var prods = (window.state && state.products) ? state.products : [];
+      if(!prods.length && typeof sb!=='undefined' && sb){
+        var r=await sb.from('productos').select('*').order('id');
+        prods=(r.data||[]);
+      }
+      if(!prods.length){ alert('No se pudieron leer los productos.'); return; }
+      var cab='id;nombre;codigo;categoria;precio;costo;stock;medida;material;acabado\n';
+      var filas=prods.map(function(p){
+        function v(x){ return '"'+String(x==null?'':x).replace(/"/g,"'")+'"'; }
+        return [p.id, v(p.name||p.nombre), v(p.code||p.codigo), v(p.cat||p.categoria),
+                v(p.price||p.precio), (p.costo!=null?p.costo:(p.costo_usd!=null?p.costo_usd:'')),
+                (p.stock!=null?p.stock:''), v(p.medida), v(p.material), v(p.acabado)].join(';');
+      }).join('\n');
+      var blob=new Blob(['\ufeff'+cab+filas],{type:'text/csv;charset=utf-8;'});
+      var a=document.createElement('a');
+      a.href=URL.createObjectURL(blob);
+      a.download='wilkaig_productos_'+new Date().toISOString().slice(0,10)+'.csv';
+      a.click();
+    }catch(e){ alert('No se pudo descargar: '+e.message); }
+  };
+
+  function mostrarBloqueo(info){
+    if(document.getElementById('nfb')) return;
+    var monto=(lic && lic.monto_mensual!=null)?lic.monto_mensual:45;
+    var moneda=(lic && lic.moneda)||'USD';
+    var d=document.createElement('div');
+    d.id='nfb'; d.className='nfb-fondo';
+    d.innerHTML=
+      '<div class="nfb-caja">'+
+        '<div class="cand">&#128274;</div>'+
+        '<h3>Renueva tu plan para entrar al panel</h3>'+
+        '<p>El plan mensual de soporte y mantenimiento venció y el acceso al panel de administración quedó en pausa.</p>'+
+        '<div class="nfb-dias">'+
+          (info.suspendida
+            ? 'Servicio suspendido'
+            : 'Venció el '+esc(lic.vence_el)+' · '+info.desdeVence+' día'+(info.desdeVence===1?'':'s')+' de atraso')+
+          '<br>Plan mensual: '+esc(String(monto))+' '+esc(moneda)+
+        '</div>'+
+        '<p><b>Tu tienda sigue abierta.</b> Tus clientes pueden seguir viendo el catálogo y enviando pedidos con normalidad.</p>'+
+        '<button class="nfb-b nfb-b1" onclick="nfpAbrir()">Ver cómo pagar</button>'+
+        '<button class="nfb-b nfb-b2" onclick="nfpWhats()">Escribir por WhatsApp</button>'+
+        '<button class="nfb-b nfb-b3" onclick="nfbDescargar()">Descargar mis productos</button>'+
+        '<a class="nfb-tienda" href="#" onclick="location.hash=\'\';location.reload();return false;">← Volver a la tienda</a>'+
+        '<div class="nfb-pie">Tus datos son tuyos y están intactos: puedes descargarlos cuando quieras.<br>'+
+        'Servicio administrado por <b>NextFlow AI</b></div>'+
+      '</div>';
+    document.body.appendChild(d);
+    document.body.style.overflow='hidden';
+    yaMostrado=true;
+  }
+
+  function quitarBloqueo(){
+    var d=document.getElementById('nfb');
+    if(d){ d.remove(); document.body.style.overflow=''; }
+    yaMostrado=false;
+  }
+
+  async function revisar(){
+    if(typeof sb==='undefined' || !sb) return;
+    if(!enPanel()){ quitarBloqueo(); return; }
+    try{
+      var r=await sb.from('licencia').select('*').eq('sitio',SITIO).single();
+      if(r.error || !r.data) return;           /* sin licencia registrada, no se bloquea */
+      lic=r.data;
+      var info=diasVencido();
+      if(info && (info.pasoLimite || info.suspendida)) mostrarBloqueo(info);
+      else quitarBloqueo();
+    }catch(e){ /* ante cualquier fallo, no se bloquea */ }
+  }
+
+  window.addEventListener('hashchange', function(){ setTimeout(revisar,300); });
+  setTimeout(revisar,1800);
+  setInterval(revisar, 20*60*1000);
 })();
 </script>
 </body>
