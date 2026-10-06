@@ -4194,6 +4194,71 @@ html,body{overflow-x:clip}
   if(b) b.textContent='v39';
 })();
 </script>
+<style>
+/* ===== Buscador fijo debajo de la tasa ===== */
+.search-wrap{position:-webkit-sticky!important;position:sticky!important;z-index:29!important;background:#fff!important;box-shadow:0 2px 6px rgba(0,0,0,.06)}
+</style>
+<script>
+/* El buscador va justo debajo de la barra de la tasa y queda pegado arriba al desplazarse */
+(function(){
+  var rb=document.querySelector('.rate-bar');
+  var sw=document.querySelector('.search-wrap');
+  if(rb && sw && rb.nextElementSibling!==sw) rb.parentNode.insertBefore(sw, rb.nextSibling);
+
+  function apilar(){
+    var nav=document.querySelector('.pub-nav');
+    if(!nav||!rb||!sw) return;
+    var top=nav.offsetHeight-1+rb.offsetHeight;
+    sw.style.setProperty('top',top+'px','important');
+    top+=sw.offsetHeight;
+    var cs=document.getElementById('cats-scroll');
+    if(cs && cs.offsetParent!==null){
+      cs.style.setProperty('top',top+'px','important');
+      top+=cs.offsetHeight;
+    }
+    var fp=document.getElementById('filter-panel');
+    if(fp) fp.style.setProperty('top',(top+10)+'px');
+  }
+  window.addEventListener('resize',apilar);
+  window.addEventListener('orientationchange',function(){ setTimeout(apilar,300); });
+  window.addEventListener('scroll',function(){
+    if(!window._apilaPend){
+      window._apilaPend=true;
+      requestAnimationFrame(function(){ apilar(); window._apilaPend=false; });
+    }
+  },{passive:true});
+  [0,250,700,1600,3200].forEach(function(ms){ setTimeout(apilar,ms); });
+
+  /* ===== Orden alfabetico: categorias y productos ===== */
+  function alfa(a,b){ return String(a||'').localeCompare(String(b||''),'es',{sensitivity:'base',numeric:true}); }
+  function ordenarCategorias(){
+    if(typeof state!=='undefined' && state && Array.isArray(state.categories)) state.categories.sort(alfa);
+  }
+  var _base=window.baseCatalogProducts;
+  if(typeof _base==='function'){
+    window.baseCatalogProducts=function(){
+      return _base.apply(this,arguments).slice().sort(function(a,b){ return alfa(a.name,b.name); });
+    };
+  }
+  var _rp=window.renderPublic;
+  if(typeof _rp==='function'){
+    window.renderPublic=function(){
+      ordenarCategorias();
+      var r=_rp.apply(this,arguments);
+      setTimeout(apilar,50);
+      return r;
+    };
+  }
+  var _rc=window.renderCatsAdmin;
+  if(typeof _rc==='function'){
+    window.renderCatsAdmin=function(){ ordenarCategorias(); return _rc.apply(this,arguments); };
+  }
+  setTimeout(function(){ try{ renderPublic(); }catch(e){} },900);
+
+  var b=document.getElementById('ver-marca');
+  if(b) b.textContent='v40';
+})();
+</script>
 <script>
 /* =====================================================================
    NextFlow AI · Recordatorio de plan  ·  MODO SOLO AVISOS
